@@ -13,12 +13,10 @@ def show_images(query_image, results):
     """
     fig, axes = plt.subplots(1, 4, figsize=(15, 5))
 
-    # Show query image
     axes[0].imshow(cv2.cvtColor(query_image, cv2.COLOR_BGR2RGB))
     axes[0].set_title("Query Image")
     axes[0].axis('off')
 
-    # Show result images
     for i, result in enumerate(results[:3]):
         img_path = result['image_path']
         similarity = result['score']
@@ -32,7 +30,6 @@ def show_images(query_image, results):
 
     plt.tight_layout()
     plt.show()
-
 
 def initialize_system(rebuild=False):
     """
@@ -53,7 +50,6 @@ def initialize_system(rebuild=False):
     success = store_image_features(DATASET_PATH, rebuild=rebuild)
     return success
 
-
 def search_with_image(query_image_path):
     """
     Search for similar images to the provided query image
@@ -69,7 +65,6 @@ def search_with_image(query_image_path):
 
     results = search_similar_images(query_image, limit=3)
     return query_image, results
-
 
 def main():
     """
@@ -102,7 +97,6 @@ def main():
     print("  python main.py init                # Train model only, keep old database")
     print("  python main.py init rebuild        # Rebuild database and retrain everything")
     print("  python main.py <image_path>        # Search similar images")
-
 
 if __name__ == "__main__":
     main()
