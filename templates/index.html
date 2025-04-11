@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bird Image Search</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .upload-container {
+      text-align: center;
+      margin: 30px 0;
+      padding: 20px;
+      border: 2px dashed #3498db;
+      border-radius: 5px;
+    }
+    #upload-btn, #search-btn {
+      background-color: #3498db;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #search-btn {
+      background-color: #2ecc71;
+      margin-top: 15px;
+      display: none;
+    }
+    #file-name {
+      margin-top: 10px;
+      font-style: italic;
+    }
+    .feature-options {
+      margin-top: 15px;
+      text-align: left;
+      display: inline-block;
+    }
+    .feature-options label {
+      margin-right: 10px;
+    }
+    .loading {
+      text-align: center;
+      margin: 20px 0;
+      display: none;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .results-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      margin-top: 30px;
+    }
+    .image-card {
+      width: 220px;
+      margin: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .image-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 3px;
+    }
+    .image-info {
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bird Image Search</h1>
+  
+  <div class="upload-container">
+    <h2>Upload a Bird Image</h2>
+    <!-- Form để upload file và chọn các feature -->
+    <form id="searchForm" method="POST" enctype="multipart/form-data" action="/search">
+      <input type="file" id="file-input" name="file" accept=".jpg,.jpeg,.png" style="display: none;">
+      <button type="button" id="upload-btn">Choose File</button>
+      <div id="file-name"></div>
+      
+      <!-- Các tùy chọn chọn loại feature -->
+      <div class="feature-options">
+        <p>Select Features for Search:</p>
+        <label><input type="checkbox" name="selected_features" value="hsv" checked> HSV</label>
+        <label><input type="checkbox" name="selected_features" value="hog" checked> HOG</label>
+        <label><input type="checkbox" name="selected_features" value="lbp" checked> LBP</label>
+        <label><input type="checkbox" name="selected_features" value="sift" checked> SIFT</label>
+      </div>
+      
+      <br>
+      <button type="submit" id="search-btn">Search</button>
+    </form>
+  </div>
+  
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Searching for similar birds...</p>
+  </div>
+  
+  <div class="results-container">
+    <div id="query-image" style="display: none;" class="image-card">
+      <h3>Query Image</h3>
+      <img id="query-img" src="" alt="Query Image">
+    </div>
+    <div id="results">
+      <!-- Kết quả tìm kiếm sẽ được hiển thị ở đây -->
+    </div>
+  </div>
+  
+  <script>
+    // Khi bấm nút Choose File
+    document.getElementById('upload-btn').addEventListener('click', function() {
+      document.getElementById('file-input').click();
+    });
+    
+    // Hiển thị tên file và preview ảnh sau khi chọn file
+    document.getElementById('file-input').addEventListener('change', function(e) {
+      const fileName = e.target.files[0]?.name;
+      if (fileName) {
+        document.getElementById('file-name').textContent = fileName;
+        document.getElementById('search-btn').style.display = 'inline-block';
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          document.getElementById('query-img').src = event.target.result;
+          document.getElementById('query-image').style.display = 'block';
+        }
+        reader.readAsDataURL(e.target.files[0]);
+      }
+    });
+    
+    // Xử lý form submit bằng JavaScript (có thể dùng submit form tự nhiên cũng được)
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+      e.preventDefault(); // Ngăn form submit mặc định
+      
+      const form = e.target;
+      const formData = new FormData(form);
+      
+      document.querySelector('.loading').style.display = 'block';
+      document.getElementById('results').innerHTML = '';
+      
+      fetch('/search', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.querySelector('.loading').style.display = 'none';
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+        
+        // Cập nhật ảnh truy vấn nếu cần
+        document.getElementById('query-img').src = 'data:image/jpeg;base64,' + data.query_image;
+        document.getElementById('query-image').style.display = 'block';
+        
+        const resultsContainer = document.getElementById('results');
+        data.results.forEach(result => {
+          const card = document.createElement('div');
+          card.className = 'image-card';
+          
+          const img = document.createElement('img');
+          img.src = 'data:image/jpeg;base64,' + result.image_data;
+          img.alt = result.species;
+          
+          const info = document.createElement('div');
+          info.className = 'image-info';
+          info.innerHTML = `
+            <h3>Match #${result.rank}</h3>
+            <p><strong>Species:</strong> ${result.species}</p>
+            <p><strong>Similarity:</strong> ${(result.score * 100).toFixed(2)}%</p>
+          `;
+          
+          card.appendChild(img);
+          card.appendChild(info);
+          resultsContainer.appendChild(card);
+        });
+      })
+      .catch(error => {
+        document.querySelector('.loading').style.display = 'none';
+        console.error('Error:', error);
+        alert('An error occurred during the search. Please try again.');
+      });
+    });
+  </script>
+</body>
+</html>
