@@ -6,7 +6,7 @@ from database import store_image_features, insert_image_features
 
 def initialize_system(rebuild=False):
     # return store_image_features("dataset/birds", rebuild)
-    return insert_image_features("dataset/chim")
+    return insert_image_features("dataset/birds")
 
 def show_images(query_image, results):
     import matplotlib.pyplot as plt
