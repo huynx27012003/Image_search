@@ -1,267 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title >Bird Image Search</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bird Image Search</title>
   <style>
-   body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(to right, #e0f7fa, #fffde7);
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 20px;
-  color: #2c3e50;
-}
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #e0f7fa, #fffde7);
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #2c3e50;
+    }
 
-h1 {
-  text-align: center;
-  font-size: 36px;
-  color: #2c3e50;
-  margin-bottom: 30px;
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
-}
+    h1 {
+      text-align: center;
+      font-size: 36px;
+      color: #2c3e50;
+      margin-bottom: 30px;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+    }
 
-.upload-container {
-  background-color: #ffffffdd;
-  backdrop-filter: blur(4px);
-  border: 2px dashed #00acc1;
-  border-radius: 15px;
-  padding: 20px;
-  text-align: center;
-  transition: box-shadow 0.3s ease;
-}
-.upload-container:hover {
-  box-shadow: 0 8px 20px rgba(0, 172, 193, 0.2);
-}
+    .upload-container {
+      background-color: #ffffffdd;
+      backdrop-filter: blur(4px);
+      border: 2px dashed #00acc1;
+      border-radius: 15px;
+      padding: 20px;
+      text-align: center;
+      transition: box-shadow 0.3s ease;
+    }
 
-#upload-btn, #search-btn {
-  background: linear-gradient(to right, #00acc1, #26c6da);
-  color: white;
-  padding: 12px 25px;
-  border: none;
-  border-radius: 30px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  margin: 10px;
-  box-shadow: 0 4px 12px rgba(0, 172, 193, 0.3);
-  transition: background 0.3s, transform 0.2s;
-}
-#upload-btn:hover, #search-btn:hover {
-  transform: scale(1.05);
-}
-#search-btn {
-  background: linear-gradient(to right, #43a047, #66bb6a);
-  display: none;
-}
+    .upload-container:hover {
+      box-shadow: 0 8px 20px rgba(0, 172, 193, 0.2);
+    }
 
-#file-name {
-  margin-top: 10px;
-  font-style: italic;
-  color: #555;
-}
+    #upload-btn, #search-btn {
+      background: linear-gradient(to right, #00acc1, #26c6da);
+      color: white;
+      padding: 12px 25px;
+      border: none;
+      border-radius: 30px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px;
+      box-shadow: 0 4px 12px rgba(0, 172, 193, 0.3);
+      transition: background 0.3s, transform 0.2s;
+    }
 
-.feature-options {
-  margin-top: 20px;
-  display: inline-block;
-  text-align: left;
-  padding: 10px 20px;
-  background-color: #f0f4c3;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-.feature-options label {
-  margin-right: 15px;
-  font-weight: 500;
-}
+    #upload-btn:hover, #search-btn:hover {
+      transform: scale(1.05);
+    }
 
-.loading {
-  text-align: center;
-  margin: 20px 0;
-  display: none;
-  font-weight: bold;
-  color: #00796b;
-}
+    #search-btn {
+      background: linear-gradient(to right, #43a047, #66bb6a);
+      display: none;
+    }
 
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #00acc1;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  display: inline-block;
-  margin-bottom: 10px;
-}
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+    #file-name {
+      margin-top: 10px;
+      font-style: italic;
+      color: #555;
+    }
 
-.results-container {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: 30px;
-  gap: 20px;
-}
+    .feature-options {
+      margin-top: 20px;
+      display: inline-block;
+      text-align: left;
+      padding: 10px 20px;
+      background-color: #f0f4c3;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
 
-.image-card {
-  width: 220px;
-  background: #fff;
-  border-radius: 15px;
-  padding: 15px;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.3s;
-}
-.image-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0, 172, 193, 0.2);
-}
+    .feature-options label {
+      margin-right: 15px;
+      font-weight: 500;
+    }
 
-.image-card img {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  border-radius: 10px;
-  transition: transform 0.3s;
-}
-.image-card img:hover {
-  transform: scale(1.03);
-}
+    .loading {
+      text-align: center;
+      margin: 20px 0;
+      display: none;
+      font-weight: bold;
+      color: #00796b;
+    }
 
-.image-info {
-  margin-top: 10px;
-  text-align: center;
-  font-size: 14px;
-  color: #333;
-}
-.image-info h3 {
-  margin: 5px 0;
-  color: #00796b;
-}
-.image-info p {
-  margin: 3px 0;
-}
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #00acc1;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
 
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .results-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 30px;
+      gap: 20px;
+    }
+
+    .image-card {
+      width: 220px;
+      background: #fff;
+      border-radius: 15px;
+      padding: 15px;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s, box-shadow 0.3s;
+    }
+
+    .image-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 172, 193, 0.2);
+    }
+
+    .image-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+      transition: transform 0.3s;
+    }
+
+    .image-card img:hover {
+      transform: scale(1.03);
+    }
+
+    .image-info {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .image-info h3 {
+      margin: 5px 0;
+      color: #00796b;
+    }
+
+    .image-info p {
+      margin: 3px 0;
+    }
+
+    /* Hide until file selected */
+    #query-img[src=""] {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <h1>Bird Image Search</h1>
-  
   <div class="upload-container">
     <h2>Upload a Bird Image</h2>
-    <!-- Form để upload file và chọn các feature -->
     <form id="searchForm" method="POST" enctype="multipart/form-data" action="/search">
-      <input type="file" id="file-input" name="file" accept=".jpg,.jpeg,.png" style="display: none;">
+      <input type="file" id="file-input" name="file" accept=".jpg,.jpeg,.png" style="display: none;" />
       <button type="button" id="upload-btn">Choose File</button>
       <div id="file-name"></div>
-      
-      <!-- Các tùy chọn chọn loại feature -->
-      <div class="feature-options">
-        <p>Select Features for Search:</p>
-        <label><input type="checkbox" name="selected_features" value="hsv" checked> HSV</label>
-        <label><input type="checkbox" name="selected_features" value="hog" checked> HOG</label>
-        <label><input type="checkbox" name="selected_features" value="lbp" checked> LBP</label>
-        <label><input type="checkbox" name="selected_features" value="sift" checked> SIFT</label>
-      </div>
-      
-      <br>
+   
+      <br/>
       <button type="submit" id="search-btn">Search</button>
     </form>
   </div>
-  
   <div class="loading">
     <div class="spinner"></div>
     <p>Searching for similar birds...</p>
   </div>
-  
   <div class="results-container">
-    <div id="query-image" style="display: none;" class="image-card">
+    <div id="query-image" class="image-card" style="display: none;">
       <h3>Query Image</h3>
-      <img id="query-img" src="" alt="Query Image">
+      <img id="query-img" src="" alt="Query Image"/>
     </div>
-    <div id="results">
-      <!-- Kết quả tìm kiếm sẽ được hiển thị ở đây -->
-    </div>
+    <div id="results"></div>
   </div>
-  
   <script>
-    // Khi bấm nút Choose File
-    document.getElementById('upload-btn').addEventListener('click', function() {
-      document.getElementById('file-input').click();
-    });
-    
-    // Hiển thị tên file và preview ảnh sau khi chọn file
-    document.getElementById('file-input').addEventListener('change', function(e) {
-      const fileName = e.target.files[0]?.name;
-      if (fileName) {
-        document.getElementById('file-name').textContent = fileName;
+    document.getElementById('upload-btn').addEventListener('click', () => document.getElementById('file-input').click());
+    document.getElementById('file-input').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) {
+        document.getElementById('file-name').textContent = file.name;
         document.getElementById('search-btn').style.display = 'inline-block';
-        
         const reader = new FileReader();
-        reader.onload = function(event) {
-          document.getElementById('query-img').src = event.target.result;
+        reader.onload = evt => {
+          document.getElementById('query-img').src = evt.target.result;
           document.getElementById('query-image').style.display = 'block';
-        }
-        reader.readAsDataURL(e.target.files[0]);
+        };
+        reader.readAsDataURL(file);
       }
     });
-    
-    // Xử lý form submit bằng JavaScript (có thể dùng submit form tự nhiên cũng được)
-    document.getElementById('searchForm').addEventListener('submit', function(e) {
-      e.preventDefault(); // Ngăn form submit mặc định
-      
-      const form = e.target;
-      const formData = new FormData(form);
-      
+    document.getElementById('searchForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
       document.querySelector('.loading').style.display = 'block';
       document.getElementById('results').innerHTML = '';
-      
-      fetch('/search', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.json())
-      .then(data => {
-        document.querySelector('.loading').style.display = 'none';
-        if (data.error) {
-          alert(data.error);
-          return;
-        }
-        
-        // Cập nhật ảnh truy vấn nếu cần
-        document.getElementById('query-img').src = 'data:image/jpeg;base64,' + data.query_image;
-        document.getElementById('query-image').style.display = 'block';
-        
-        const resultsContainer = document.getElementById('results');
-        data.results.forEach(result => {
-          const card = document.createElement('div');
-          card.className = 'image-card';
-          
-          const img = document.createElement('img');
-          img.src = 'data:image/jpeg;base64,' + result.image_data;
-          img.alt = result.species;
-          
-          const info = document.createElement('div');
-          info.className = 'image-info';
-          info.innerHTML = `
-            <h3>Match #${result.rank}</h3>
-            <p><strong>Species:</strong> ${result.species}</p>
-            <p><strong>Similarity:</strong> ${(result.score * 100).toFixed(2)}%</p>
-          `;
-          
-          card.appendChild(img);
-          card.appendChild(info);
-          resultsContainer.appendChild(card);
-        });
-      })
-      .catch(error => {
-        document.querySelector('.loading').style.display = 'none';
-        console.error('Error:', error);
-        alert('An error occurred during the search. Please try again.');
-      });
+      fetch('/search', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+          document.querySelector('.loading').style.display = 'none';
+          if (data.error) return alert(data.error);
+          document.getElementById('query-img').src = 'data:image/jpeg;base64,' + data.query_image;
+          document.getElementById('query-image').style.display = 'block';
+          const resultsContainer = document.getElementById('results');
+          data.results.forEach(res => {
+            const card = document.createElement('div'); card.className='image-card';
+            const img = document.createElement('img'); img.src='data:image/jpeg;base64,'+res.image_data; img.alt=res.species;
+            const info = document.createElement('div'); info.className='image-info';
+            info.innerHTML = `<h3>Match #${res.rank}</h3><p><strong>Species:</strong> ${res.species}</p><p><strong>Similarity:</strong> ${(res.score*100).toFixed(1)}%</p>`;
+            card.appendChild(img); card.appendChild(info); resultsContainer.appendChild(card);
+          });
+          document.getElementById('file-input').value=''; document.getElementById('file-name').textContent=''; document.getElementById('search-btn').style.display='none';
+        })
+        .catch(() => { document.querySelector('.loading').style.display='none'; alert('Error searching.'); });
     });
   </script>
 </body>

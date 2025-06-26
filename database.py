@@ -1,130 +1,194 @@
 from pymongo import MongoClient
 from datetime import datetime
-import cv2
-import os
-import numpy as np
-import pickle
+import cv2, os, signal
 from feature_extraction import extract_features, combine_features
-from config import *
+from config import MONGODB_URI, DB_NAME, COLLECTION_NAME, DEFAULT_WEIGHTS
+from bson import Binary
+import base64
+
+# Class xử lý timeout
+class TimeoutError(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutError("Xử lý ảnh quá thời gian cho phép")
 
 def connect_mongodb():
-    """
-    Connect to MongoDB
-    """
     client = MongoClient(MONGODB_URI)
-    db = client[DB_NAME]
-    collection = db[COLLECTION_NAME]
-    return collection
+    return client[DB_NAME][COLLECTION_NAME]
 
-def create_vector_index(collection):
-    """
-    Create vector index for MongoDB Atlas vector search
-    """
-    try:
-        collection.create_index(
-            [("combined_features", "vector")],
-            {
-                "name": "vector_index",
-                "vectorOptions": {
-                    "dimensions": 300,  # Lưu ý: dimension ở đây tương ứng với kết quả kết hợp (với HOG đã giảm xuống 300)
-                    "similarity": "cosine"
-                }
-            }
-        )
-        print("Vector index created successfully")
-        return True
-    except Exception as e:
-        print(f"Failed to create vector index: {e}")
-        print("Vector search may not be available")
-        return False
+# Phiên bản cho Windows
+import threading
+import time
 
-def store_image_features(image_folder, rebuild=False):
-    """
-    Extract features from images and store them in MongoDB
-    """
-    collection = connect_mongodb()
+def process_image_with_timeout(image, timeout=10):
+    result = {"success": False, "data": None, "error": None}
     
-    if rebuild or collection.count_documents({}) == 0:
-        if rebuild:
-            collection.delete_many({})
-        
-        # Load mô hình hog_pca
-        hog_pca_path = os.path.join(MODELS_PATH, 'hog_pca_model.pkl')
+    def target_function():
         try:
-            with open(hog_pca_path, 'rb') as f:
-                hog_pca = pickle.load(f)
+            features_dict = extract_features(image)
+            features = combine_features(features_dict, DEFAULT_WEIGHTS)
+            result["success"] = True
+            result["data"] = (features_dict, features)
         except Exception as e:
-            print(f"Error loading hog_pca: {e}")
-            hog_pca = None
+            result["error"] = e
+    
+    thread = threading.Thread(target=target_function)
+    thread.daemon = True
+    thread.start()
+    thread.join(timeout)
+    
+    if thread.is_alive():
+        # Timeout xảy ra
+        return None, None, TimeoutError("Xử lý ảnh quá thời gian cho phép")
+    
+    if not result["success"]:
+        return None, None, result["error"]
+    
+    return result["data"][0], result["data"][1], None
 
-        # Load visual codebook and other model nếu cần (đã được lưu riêng)
+def insert_image_features(image_folder):
+    col = connect_mongodb()
+    imgs = [f for f in os.listdir(image_folder) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+    data = []
+    skipped = 0
+    processed = 0
+
+    for idx, fname in enumerate(imgs):
+        path = os.path.join(image_folder, fname)
+        print(f"[{idx+1}/{len(imgs)}] Đang xử lý: {path}")
+        
         try:
-            # Load visual codebook
-            codebook_path = os.path.join(MODELS_PATH, 'visual_codebook.pkl')
-            with open(codebook_path, 'rb') as f:
-                codebook = pickle.load(f)
-            
-            # Nếu có PCA tổng hợp cho những feature ngoài HOG (nếu bạn vẫn cần)
-            pca_path = os.path.join(MODELS_PATH, 'pca_model.pkl')
-            with open(pca_path, 'rb') as f:
-                pca = pickle.load(f)
-        except Exception as e:
-            print(f"Error loading additional models: {e}")
-            pca = None
-        
-        image_paths = [os.path.join(image_folder, f) for f in os.listdir(image_folder) 
-                      if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
-        
-        print(f"Processing {len(image_paths)} images...")
-        count = 0
-        
-        for img_path in image_paths:
-            image_name = os.path.basename(img_path)
-            species = image_name.split('_')[0] if '_' in image_name else 'unknown'
-            
-            image = cv2.imread(img_path)
+            image = cv2.imread(path)
             if image is None:
-                print(f"Could not read image: {img_path}")
+                print(f"⚠️ Không thể đọc ảnh: {fname}")
+                skipped += 1
                 continue
             
-            features_dict = extract_features(image)
+            try:
+                # Xử lý ảnh với timeout 10 giây
+                features_dict, features, error = process_image_with_timeout(image, timeout=10)
+                
+                if error:
+                    if isinstance(error, TimeoutError):
+                        print(f"⏱️ Vượt quá thời gian xử lý (10s) cho ảnh: {fname}")
+                    else:
+                        print(f"❌ Lỗi khi trích xuất đặc trưng cho {fname}: {error}")
+                    skipped += 1
+                    continue
+                
+                # Chuyển đổi ảnh thành định dạng Base64
+                _, buffer = cv2.imencode('.jpg', image)
+                image_base64 = base64.b64encode(buffer).decode('utf-8')
 
-            # Giảm chiều HOG bằng hog_pca nếu có
-            if 'hog' in features_dict and hog_pca is not None:
+                height, width = image.shape[:2]
+                ctime = os.path.getctime(path)
+                created_time = datetime.fromtimestamp(ctime).isoformat()
+                doc = {
+                    "filename": fname,
+                    "filepath": path,
+                    "dimensions": {"height": height, "width": width},
+                    "features": features.tolist(),
+                    "created_time": created_time,
+                    "image_base64": image_base64  # Lưu ảnh dạng Base64
+                }
+                data.append(doc)
+                processed += 1
+                
+            except TimeoutError:
+                print(f"⏱️ Vượt quá thời gian xử lý (10s) cho ảnh: {fname}")
+                skipped += 1
+                continue
+            except Exception as e:
+                print(f"❌ Lỗi khi trích xuất đặc trưng cho {fname}: {e}")
+                skipped += 1
+                continue
+                
+        except Exception as e:
+            print(f"❌ Lỗi không xác định với {fname}: {e}")
+            skipped += 1
+            continue
+
+    if data:
+        col.insert_many(data)
+        
+    print(f"✅ Đã xử lý thành công: {processed} ảnh")
+    print(f"⚠️ Đã bỏ qua: {skipped} ảnh")
+    return True
+
+
+def store_image_features(image_folder, rebuild=False):
+    col = connect_mongodb()
+    if rebuild or col.count_documents({}) == 0:
+        if rebuild:
+            col.delete_many({})
+
+        imgs = [f for f in os.listdir(image_folder) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+        data = []
+        skipped = 0
+        processed = 0
+
+        for idx, fname in enumerate(imgs):
+            path = os.path.join(image_folder, fname)
+            print(f"[{idx+1}/{len(imgs)}] Đang xử lý: {path}")
+            
+            try:
+                image = cv2.imread(path)
+                if image is None:
+                    print(f"⚠️ Không thể đọc ảnh: {fname}")
+                    skipped += 1
+                    continue
+                
                 try:
-                    features_dict['hog'] = hog_pca.transform(features_dict['hog'].reshape(1, -1))[0]
+                    # Xử lý ảnh với timeout 10 giây
+                    features_dict, features, error = process_image_with_timeout(image, timeout=10)
+                    
+                    if error:
+                        if isinstance(error, TimeoutError):
+                            print(f"⏱️ Vượt quá thời gian xử lý (10s) cho ảnh: {fname}")
+                        else:
+                            print(f"❌ Lỗi khi trích xuất đặc trưng cho {fname}: {error}")
+                        skipped += 1
+                        continue
+                    
+                    # Chuyển đổi ảnh thành định dạng Base64
+                    _, buffer = cv2.imencode('.jpg', image)
+                    image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+                    height, width = image.shape[:2]
+                    ctime = os.path.getctime(path)
+                    created_time = datetime.fromtimestamp(ctime).isoformat()
+                    doc = {
+                        "filename": fname,
+                        "filepath": path,
+                        "dimensions": {"height": height, "width": width},
+                        "features": features.tolist(),
+                        "created_time": created_time,
+                        "image_base64": image_base64  # Lưu ảnh dạng Base64
+                    }
+                    data.append(doc)
+                    processed += 1
+                    
+                except TimeoutError:
+                    print(f"⏱️ Vượt quá thời gian xử lý (10s) cho ảnh: {fname}")
+                    skipped += 1
+                    continue
                 except Exception as e:
-                    print(f"[WARN] HOG PCA transform failed for {image_name}: {e}")
+                    print(f"❌ Lỗi khi trích xuất đặc trưng cho {fname}: {e}")
+                    skipped += 1
+                    continue
+                    
+            except Exception as e:
+                print(f"❌ Lỗi không xác định với {fname}: {e}")
+                skipped += 1
+                continue
+
+        if data:
+            col.insert_many(data)
             
-            # Kết hợp các feature để tạo vector tìm kiếm
-            combined_features = combine_features(features_dict, hog_pca=None)  # đã giảm trước nên không cần truyền hog_pca nữa
-            
-            # Lưu vào MongoDB
-            document = {
-                'image_path': img_path,
-                'image_name': image_name,
-                'species': species,
-                'features': {
-                    'hsv': features_dict['hsv'].tolist(),
-                    'hog': features_dict['hog'].tolist(),
-                    'lbp': features_dict['lbp'].tolist(),
-                    'sift_bow': features_dict['sift_bow'].tolist()
-                },
-                'combined_features': combined_features.tolist(),
-                'created_at': datetime.now()
-            }
-            
-            collection.insert_one(document)
-            count += 1
-            
-            if count % 10 == 0:
-                print(f"Processed {count}/{len(image_paths)} images")
-        
-        print(f"Successfully stored features for {count} images in MongoDB")
-        create_vector_index(collection)
-        
+        print(f"✅ Đã xử lý thành công: {processed} ảnh")
+        print(f"⚠️ Đã bỏ qua: {skipped} ảnh")
         return True
     else:
-        print(f"Collection already contains {collection.count_documents({})} documents")
-        print("Use rebuild=True to rebuild the database")
+        print(f"Đã có sẵn {col.count_documents({})} bản ghi. Dùng rebuild=True nếu muốn tạo lại.")
         return False
